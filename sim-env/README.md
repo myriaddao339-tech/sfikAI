@@ -14,42 +14,50 @@ Une image Docker prête à l'emploi pour simuler un drone ArduPilot :
 **Aucun GPU requis** : le rendu passe par le processeur (Mesa llvmpipe).
 Le dossier est **autonome** : tu peux le copier n'importe où, aucun chemin n'est codé en dur.
 
----
-
-## 1. Installer Docker (une seule fois)
-
-### Sous Linux (Ubuntu)
-
-```bash
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
-```
-
-Ferme ta session puis rouvre-la (ou lance `newgrp docker`), puis vérifie avec :
-
-```bash
-docker run --rm hello-world
-```
-
-### Sous Windows (WSL 2)
-
-1. Dans un PowerShell **administrateur** :
-   ```powershell
-   wsl --install -d Ubuntu-22.04
-   ```
-2. Redémarre, ouvre **Ubuntu**, puis suis la partie *Linux* ci-dessus dans ce terminal.
-3. Si `docker` répond *Cannot connect to the Docker daemon*, lance `sudo service docker start`.
-
-Toutes les commandes suivantes se tapent **dans le terminal Ubuntu**, jamais dans PowerShell.
-Les fenêtres Gazebo s'affichent directement sous Windows 11 (WSLg).
+> Docker n'est pas encore installé ? Commence par la partie [8. Installer Docker](#8-installer-docker).
 
 ---
 
-## 2. Construire l'image (une seule fois)
+## Sommaire
+
+- [Arborescence](#arborescence)
+- [1. Construire l'image](#1-construire-limage)
+- [2. Lancer une simulation](#2-lancer-une-simulation)
+- [3. Commandes](#3-commandes)
+- [4. Travailler sur ton projet](#4-travailler-sur-ton-projet)
+- [5. Station sol](#5-station-sol)
+- [6. Copier l'image sur un autre PC](#6-copier-limage-sur-un-autre-pc)
+- [7. Dépannage](#7-dépannage)
+- [8. Installer Docker](#8-installer-docker)
+
+---
+
+## Arborescence
+
+```
+sim-env/
+├── README.md
+├── Dockerfile
+├── sim.sh            # toutes les commandes côté hôte
+├── scripts/          # copiés dans l'image sous /opt/sim
+│   ├── env.sh        # environnement (ROS 2, chemins Gazebo, rendu CPU)
+│   ├── gazebo.sh
+│   ├── sitl.sh
+│   └── mavros.sh
+└── workspace/        # ton projet, monté dans /workspace
+```
+
+Modifier un script de `scripts/` demande de reconstruire l'image (`./sim.sh build`, quelques secondes grâce au cache).
+Pour changer de version d'ArduPilot ou du plugin, modifie `ARDUPILOT_SHA` / `AP_GAZEBO_SHA` dans le `Dockerfile`.
+
+---
+
+## 1. Construire l'image
+
+Une seule fois, dans le terminal Ubuntu :
 
 ```bash
-cd sim-env
+cd sfikAI/sim-env
 ./sim.sh build
 ```
 
@@ -58,9 +66,11 @@ Le résultat est l'image `sim-env:1` (7 Go).
 
 Prévois au moins **8 Go de RAM** : une simulation complète (Gazebo avec fenêtre, SITL et MAVROS) en utilise environ 1,5 Go.
 
+> **Sous Windows**, chaque commande `./sim.sh ...` peut aussi se lancer depuis PowerShell, dans le dossier `sim-env`, en ajoutant `wsl` devant : `wsl ./sim.sh build`.
+
 ---
 
-## 3. Lancer une simulation
+## 2. Lancer une simulation
 
 Ouvre **3 terminaux**, tous dans le dossier `sim-env/` :
 
@@ -83,7 +93,7 @@ Le drone décolle dans Gazebo. Pour tout arrêter : `Ctrl-C` dans chaque termina
 
 ---
 
-## 4. Toutes les commandes
+## 3. Commandes
 
 | Commande | Effet |
 |---|---|
@@ -110,7 +120,7 @@ Options, à placer **devant** la commande :
 
 ---
 
-## 5. Travailler sur ton projet
+## 4. Travailler sur ton projet
 
 Le dossier `workspace/` (ou celui donné par `SIM_WS`) est partagé avec le conteneur sous `/workspace`.
 Les fichiers sont modifiables depuis ton éditeur habituel et visibles immédiatement dans le conteneur.
@@ -136,9 +146,9 @@ Un monde à toi doit contenir un modèle muni du plugin `ArduPilotPlugin` (par e
 
 ---
 
-## 6. Station sol (Mission Planner / QGroundControl)
+## 5. Station sol
 
-SITL envoie MAVLink sur deux ports UDP :
+Pour Mission Planner ou QGroundControl, SITL envoie MAVLink sur deux ports UDP :
 - **14550** pour une station sol locale ;
 - **14555** pour MAVROS.
 
@@ -152,7 +162,9 @@ SITL envoie MAVLink sur deux ports UDP :
 
 ---
 
-## 7. Copier l'image sur un autre PC (sans internet)
+## 6. Copier l'image sur un autre PC
+
+Sans internet sur l'autre PC :
 
 ```bash
 docker save sim-env:1 | gzip > sim-env.tar.gz     # sur le PC qui a construit l'image
@@ -164,11 +176,12 @@ Les deux PC doivent être en **x86_64**.
 
 ---
 
-## 8. Dépannage
+## 7. Dépannage
 
 | Symptôme | Solution |
 |---|---|
 | `permission denied ... docker.sock` | `sudo usermod -aG docker $USER`, puis ferme et rouvre ta session |
+| `Cannot connect to the Docker daemon` (WSL) | `sudo service docker start` |
 | Pas de fenêtre Gazebo (Linux) | `xhost +local:root`, puis `./sim.sh stop` et relance |
 | Gazebo affiche un monde vide | Un ancien `gz sim` traîne encore : `./sim.sh stop` puis relance |
 | SITL répète `No JSON sensor message received` | Gazebo doit tourner **avant** SITL, avec un monde contenant un drone ArduPilot |
@@ -179,20 +192,41 @@ Les deux PC doivent être en **x86_64**.
 
 ---
 
-## Arborescence
+## 8. Installer Docker
 
-```
-sim-env/
-├── README.md
-├── Dockerfile
-├── sim.sh            # toutes les commandes côté hôte
-├── scripts/          # copiés dans l'image sous /opt/sim
-│   ├── env.sh        # environnement (ROS 2, chemins Gazebo, rendu CPU)
-│   ├── gazebo.sh
-│   ├── sitl.sh
-│   └── mavros.sh
-└── workspace/        # ton projet, monté dans /workspace
+À faire une seule fois, seulement si Docker n'est pas déjà installé.
+
+### Sous Linux (Ubuntu)
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+sudo usermod -aG docker $USER
 ```
 
-Modifier un script de `scripts/` demande de reconstruire l'image (`./sim.sh build`, quelques secondes grâce au cache).
-Pour changer de version d'ArduPilot ou du plugin, modifie `ARDUPILOT_SHA` / `AP_GAZEBO_SHA` dans le `Dockerfile`.
+Ferme ta session puis rouvre-la (ou lance `newgrp docker`), puis vérifie avec :
+
+```bash
+docker run --rm hello-world
+```
+
+### Sous Windows (WSL 2)
+
+Prérequis :
+
+| Élément | Exigence |
+|---|---|
+| WSL | **Version 2** obligatoire : Docker ne tourne pas sous WSL 1 |
+| Windows | Windows 11, ou Windows 10 récent, pour que les fenêtres Gazebo s'affichent (WSLg) |
+| Ubuntu | 22.04 ou 24.04 : l'image apporte son propre Ubuntu 22.04 |
+| Processeur | x86_64 (Intel/AMD), pas ARM |
+
+1. Dans un PowerShell **administrateur** :
+   ```powershell
+   wsl --install -d Ubuntu-22.04
+   wsl --set-default-version 2
+   ```
+2. Redémarre, ouvre **Ubuntu**, puis suis la partie *Linux* ci-dessus dans ce terminal.
+3. Vérifie que ta distribution est bien en version 2 avec `wsl -l -v` (colonne `VERSION`).
+
+Docker tourne alors dans Ubuntu (WSL). Les commandes `./sim.sh` se lancent dans le terminal Ubuntu, ou depuis PowerShell avec `wsl` devant.
